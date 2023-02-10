@@ -25,7 +25,7 @@ app.post(`/message`, async (req, res) => {
     console.log(`Received message: ${message}`);
     const reply = await sendMesasge(message);
     return res.json({
-      message: reply.response,
+      response: reply.response,
     });
   } catch (e) {
     console.error(e);
@@ -116,7 +116,7 @@ app.post(`/message/:sessionId`, async (req, res) => {
     console.log(`Received message: ${message} for session: ${sessionId}`);
     const response = await sendMesasge(message, sessionId);
     return res.json({
-      message: response.response,
+      response: response.response,
     });
   } catch (e) {
     console.error(e);
