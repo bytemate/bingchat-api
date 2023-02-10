@@ -1,0 +1,39 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:../data/dev.db"
+}
+
+// {
+//     "conversationId": "51D|1399543D639E6F982DA8B94FC432D2828B9BDE83BC94B87729DE5733962C3C88",
+//     "clientId": "844425381833033",
+//     "conversationSignature": "iiNR+fokVHWIHfhqbUncIKqVvSB5R+gdJJzr9t/+J3c=",
+//     "result": {
+//         "value": "Success",
+//         "message": null
+//     }
+// }
+model Conversations {
+  id                     Int      @id @default(autoincrement())
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+  sessionId              String
+  conversationId         String
+  conversationSignature  String
+  clientId               String
+  invocationId           Int
+  conversationExpiryTime String
+}
+
+model Result {
+  id              Int      @id @default(autoincrement())
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  request         String
+  response        String
+  conversationsId String
+  responseTime    Int      @default(0)
+}
