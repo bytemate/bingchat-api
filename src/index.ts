@@ -1,6 +1,8 @@
+import "dotenv";
 import { Prisma, PrismaClient } from "@prisma/client";
 // @ts-ignore
-import { getConversationInfo } from "./lib";
+import { ConversationInfo } from "./lib";
+import { uuid } from "uuidv4";
 import express from "express";
 let bingAIClient: any;
 const prisma = new PrismaClient();
@@ -48,7 +50,10 @@ interface BingAIClientResponse {
   };
 }
 
-const getOrCreateConversationInfo = async (sessionId: string) => {
+const getOrCreateConversationInfo = async (
+  sessionId?: string
+): Promise<ConversationInfo> => {
+  sessionId = sessionId || uuid();
   const conversationInfo = await prisma.conversations.findFirst({
     where: {
       sessionId,
@@ -57,7 +62,9 @@ const getOrCreateConversationInfo = async (sessionId: string) => {
   if (conversationInfo) {
     return conversationInfo;
   }
-  const newConversationInfo = await getConversationInfo();
+  const newConversationInfo = await bingAIClient.createNewConversation();
+  console.log(`Created new conversation: ${newConversationInfo}`);
+  console.log(newConversationInfo);
   await prisma.conversations.create({
     data: {
       sessionId,
@@ -72,11 +79,7 @@ const getOrCreateConversationInfo = async (sessionId: string) => {
 };
 const sendMesasge = async (message: string, sessionId?: string) => {
   let conversationInfo;
-  if (sessionId) {
-    conversationInfo = await getOrCreateConversationInfo(sessionId);
-  } else {
-    conversationInfo = await getConversationInfo();
-  }
+  conversationInfo = await getOrCreateConversationInfo(sessionId);
   const startTime = new Date().getTime();
   const response: BingAIClientResponse = await bingAIClient.sendMessage(
     message,
@@ -149,7 +152,14 @@ async function main() {
   // @ts-ignore
   const { BingAIClient } = await import("@waylaidwanderer/chatgpt-api");
   const PORT = process.env.PORT || 3000;
-  bingAIClient = new BingAIClient({});
+  console.log(`Starting server on port: ${PORT}`);
+  console.log(
+    `Bing AI Client User Token: ${process.env.BING_AI_CLIENT_USER_TOKEN}`
+  );
+  bingAIClient = new BingAIClient({
+    userToken: process.env.BING_AI_CLIENT_USER_TOKEN,
+    debug: true,
+  });
   app.listen(PORT, () => {
     console.log(`🚀 Server ready at: http://:::${PORT}`);
   });
