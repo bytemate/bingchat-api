@@ -1,4 +1,4 @@
-import "dotenv";
+import "dotenv/config";
 import { Prisma, PrismaClient } from "@prisma/client";
 // @ts-ignore
 import { ConversationInfo } from "./lib";
@@ -158,7 +158,6 @@ async function main() {
   );
   bingAIClient = new BingAIClient({
     userToken: process.env.BING_AI_CLIENT_USER_TOKEN,
-    debug: true,
   });
   app.listen(PORT, () => {
     console.log(`🚀 Server ready at: http://:::${PORT}`);
