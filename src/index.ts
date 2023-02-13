@@ -61,6 +61,7 @@ const getOrCreateConversationInfo = async (
     },
   });
   if (conversationInfo) {
+    console.log(conversationInfo);
     return conversationInfo;
   }
   const newConversationInfo = await bingAIClient.createNewConversation();
@@ -80,6 +81,7 @@ const getOrCreateConversationInfo = async (
 };
 const sendMesasge = async (message: string, sessionId?: string) => {
   let conversationInfo;
+  sessionId = sessionId || uuid();
   conversationInfo = await getOrCreateConversationInfo(sessionId);
   const startTime = new Date().getTime();
   const response: BingAIClientResponse = await bingAIClient.sendMessage(
@@ -88,9 +90,11 @@ const sendMesasge = async (message: string, sessionId?: string) => {
       conversationId: conversationInfo.conversationId,
       clientId: conversationInfo.clientId,
       conversationSignature: conversationInfo.conversationSignature,
+      invocationId: conversationInfo.invocationId,
     }
   );
   const endTime = new Date().getTime();
+  console.log(response);
   if (sessionId) {
     await prisma.conversations.upsert({
       where: {
