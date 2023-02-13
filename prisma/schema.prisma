@@ -26,6 +26,8 @@ model Conversations {
   clientId               String
   invocationId           Int
   conversationExpiryTime String
+
+  @@unique([sessionId, conversationId])
 }
 
 model Result {

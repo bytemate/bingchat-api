@@ -4,6 +4,7 @@ import { Prisma, PrismaClient } from "@prisma/client";
 import { ConversationInfo } from "./lib";
 import { uuid } from "uuidv4";
 import express from "express";
+import { create } from "axios";
 let bingAIClient: any;
 const prisma = new PrismaClient();
 const app = express();
@@ -91,11 +92,23 @@ const sendMesasge = async (message: string, sessionId?: string) => {
   );
   const endTime = new Date().getTime();
   if (sessionId) {
-    await prisma.conversations.create({
-      data: {
+    await prisma.conversations.upsert({
+      where: {
+        sessionId_conversationId: {
+          sessionId,
+          conversationId: conversationInfo.conversationId,
+        },
+      },
+      create: {
         sessionId,
         conversationExpiryTime: response.conversationExpiryTime,
         conversationId: conversationInfo.conversationId,
+        clientId: response.clientId,
+        conversationSignature: response.conversationSignature,
+        invocationId: response.invocationId,
+      },
+      update: {
+        conversationExpiryTime: response.conversationExpiryTime,
         clientId: response.clientId,
         conversationSignature: response.conversationSignature,
         invocationId: response.invocationId,
