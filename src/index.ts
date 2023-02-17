@@ -9,11 +9,12 @@ import { generateMarkdown, BingChatResponse } from "./lib";
 let bingAIClient: any;
 const prisma = new PrismaClient();
 const app = express();
-
+import { Queue } from "async-await-queue";
 app.use(express.json());
 app.get(`/`, async (req, res) => {
   return res.json({
     message: "Hello World",
+    info: "BingChat 🎉",
   });
 });
 // let {
@@ -23,6 +24,8 @@ app.get(`/`, async (req, res) => {
 //   invocationId = 0,
 //   onProgress,
 // } = opts;
+const conversationQueue = new Queue(10);
+const messageQueue = new Queue(10);
 app.post(`/message`, async (req, res) => {
   try {
     const { message } = req.body;
@@ -52,68 +55,78 @@ const getOrCreateConversationInfo = async (
     console.log(conversationInfo);
     return conversationInfo;
   }
-  const newConversationInfo = await bingAIClient.createNewConversation();
-  console.log(`Created new conversation: ${newConversationInfo}`);
-  console.log(newConversationInfo);
-  await prisma.conversations.create({
-    data: {
-      sessionId,
-      conversationExpiryTime: newConversationInfo.conversationExpiryTime,
-      conversationId: newConversationInfo.conversationId,
-      clientId: newConversationInfo.clientId,
-      conversationSignature: newConversationInfo.conversationSignature,
-      invocationId: 0,
-    },
-  });
-  return newConversationInfo;
+  await conversationQueue.wait(sessionId);
+  try {
+    const newConversationInfo = await bingAIClient.createNewConversation();
+    console.log(`Created new conversation: ${newConversationInfo}`);
+    console.log(newConversationInfo);
+    await prisma.conversations.create({
+      data: {
+        sessionId,
+        conversationExpiryTime: newConversationInfo.conversationExpiryTime,
+        conversationId: newConversationInfo.conversationId,
+        clientId: newConversationInfo.clientId,
+        conversationSignature: newConversationInfo.conversationSignature,
+        invocationId: 0,
+      },
+    });
+    return newConversationInfo;
+  } finally {
+    await conversationQueue.end(sessionId);
+  }
 };
 const sendMesasge = async (message: string, sessionId?: string) => {
   let conversationInfo;
   sessionId = sessionId || uuid();
   conversationInfo = await getOrCreateConversationInfo(sessionId);
   const startTime = new Date().getTime();
-  const response: BingChatResponse = await bingAIClient.sendMessage(message, {
-    conversationId: conversationInfo.conversationId,
-    clientId: conversationInfo.clientId,
-    conversationSignature: conversationInfo.conversationSignature,
-    invocationId: conversationInfo.invocationId,
-  });
-  const endTime = new Date().getTime();
-  const responseMarkdown = await generateMarkdown(response);
-  console.log(responseMarkdown);
-  if (sessionId) {
-    await prisma.conversations.upsert({
-      where: {
-        sessionId_conversationId: {
-          sessionId,
-          conversationId: conversationInfo.conversationId,
+  await messageQueue.wait(sessionId);
+  try {
+    const response: BingChatResponse = await bingAIClient.sendMessage(message, {
+      conversationId: conversationInfo.conversationId,
+      clientId: conversationInfo.clientId,
+      conversationSignature: conversationInfo.conversationSignature,
+      invocationId: conversationInfo.invocationId,
+    });
+    const endTime = new Date().getTime();
+    const responseMarkdown = await generateMarkdown(response);
+    console.log(responseMarkdown);
+    if (sessionId) {
+      await prisma.conversations.upsert({
+        where: {
+          sessionId_conversationId: {
+            sessionId,
+            conversationId: conversationInfo.conversationId,
+          },
         },
-      },
-      create: {
-        sessionId,
-        conversationExpiryTime: response.conversationExpiryTime,
-        conversationId: conversationInfo.conversationId,
-        clientId: response.clientId,
-        conversationSignature: response.conversationSignature,
-        invocationId: response.invocationId,
-      },
-      update: {
-        conversationExpiryTime: response.conversationExpiryTime,
-        clientId: response.clientId,
-        conversationSignature: response.conversationSignature,
-        invocationId: response.invocationId,
+        create: {
+          sessionId,
+          conversationExpiryTime: response.conversationExpiryTime,
+          conversationId: conversationInfo.conversationId,
+          clientId: response.clientId,
+          conversationSignature: response.conversationSignature,
+          invocationId: response.invocationId,
+        },
+        update: {
+          conversationExpiryTime: response.conversationExpiryTime,
+          clientId: response.clientId,
+          conversationSignature: response.conversationSignature,
+          invocationId: response.invocationId,
+        },
+      });
+    }
+    await prisma.result.create({
+      data: {
+        request: message,
+        response: responseMarkdown,
+        conversationsId: conversationInfo.conversationId,
+        responseTime: endTime - startTime,
       },
     });
+    return response;
+  } finally {
+    await messageQueue.end(sessionId);
   }
-  await prisma.result.create({
-    data: {
-      request: message,
-      response: responseMarkdown,
-      conversationsId: conversationInfo.conversationId,
-      responseTime: endTime - startTime,
-    },
-  });
-  return response;
 };
 app.post(`/message/:sessionId`, async (req, res) => {
   try {
