@@ -123,7 +123,7 @@ const sendMesasge = async (message: string, sessionId?: string) => {
         responseTime: endTime - startTime,
       },
     });
-    return response;
+    return responseMarkdown;
   } finally {
     await messageQueue.end(sessionId);
   }
