@@ -25,7 +25,7 @@ model Conversations {
   conversationSignature  String
   clientId               String
   invocationId           Int
-  conversationExpiryTime String
+  conversationExpiryTime DateTime @default(now())
 
   @@unique([sessionId, conversationId])
 }

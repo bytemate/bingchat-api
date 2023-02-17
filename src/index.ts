@@ -5,6 +5,7 @@ import { ConversationInfo } from "./lib";
 import { uuid } from "uuidv4";
 import express from "express";
 import { create } from "axios";
+import { generateMarkdown, BingChatResponse } from "./lib";
 let bingAIClient: any;
 const prisma = new PrismaClient();
 const app = express();
@@ -28,7 +29,7 @@ app.post(`/message`, async (req, res) => {
     console.log(`Received message: ${message}`);
     const reply = await sendMesasge(message);
     return res.json({
-      response: reply.response,
+      response: reply,
     });
   } catch (e) {
     console.error(e);
@@ -38,19 +39,6 @@ app.post(`/message`, async (req, res) => {
     });
   }
 });
-interface BingAIClientResponse {
-  conversationSignature: string;
-  conversationId: string;
-  clientId: string;
-  invocationId: number;
-  conversationExpiryTime: string;
-  response: string;
-  details: {
-    text: string;
-    type: string;
-  };
-}
-
 const getOrCreateConversationInfo = async (
   sessionId?: string
 ): Promise<ConversationInfo> => {
@@ -70,7 +58,7 @@ const getOrCreateConversationInfo = async (
   await prisma.conversations.create({
     data: {
       sessionId,
-      conversationExpiryTime: "",
+      conversationExpiryTime: newConversationInfo.conversationExpiryTime,
       conversationId: newConversationInfo.conversationId,
       clientId: newConversationInfo.clientId,
       conversationSignature: newConversationInfo.conversationSignature,
@@ -84,17 +72,15 @@ const sendMesasge = async (message: string, sessionId?: string) => {
   sessionId = sessionId || uuid();
   conversationInfo = await getOrCreateConversationInfo(sessionId);
   const startTime = new Date().getTime();
-  const response: BingAIClientResponse = await bingAIClient.sendMessage(
-    message,
-    {
-      conversationId: conversationInfo.conversationId,
-      clientId: conversationInfo.clientId,
-      conversationSignature: conversationInfo.conversationSignature,
-      invocationId: conversationInfo.invocationId,
-    }
-  );
+  const response: BingChatResponse = await bingAIClient.sendMessage(message, {
+    conversationId: conversationInfo.conversationId,
+    clientId: conversationInfo.clientId,
+    conversationSignature: conversationInfo.conversationSignature,
+    invocationId: conversationInfo.invocationId,
+  });
   const endTime = new Date().getTime();
-  console.log(response);
+  const responseMarkdown = await generateMarkdown(response);
+  console.log(responseMarkdown);
   if (sessionId) {
     await prisma.conversations.upsert({
       where: {
@@ -122,7 +108,7 @@ const sendMesasge = async (message: string, sessionId?: string) => {
   await prisma.result.create({
     data: {
       request: message,
-      response: response.response,
+      response: responseMarkdown,
       conversationsId: conversationInfo.conversationId,
       responseTime: endTime - startTime,
     },
@@ -136,7 +122,7 @@ app.post(`/message/:sessionId`, async (req, res) => {
     console.log(`Received message: ${message} for session: ${sessionId}`);
     const response = await sendMesasge(message, sessionId);
     return res.json({
-      response: response.response,
+      response: response,
     });
   } catch (e) {
     console.error(e);
