@@ -1,6 +1,6 @@
 import "dotenv/config";
 import { Prisma, PrismaClient } from "@prisma/client";
-import crypto from 'crypto';
+import crypto from "crypto";
 // @ts-ignore
 import { ConversationInfo } from "./lib";
 import { uuid } from "uuidv4";
@@ -24,8 +24,6 @@ app.get(`/`, async (req, res) => {
 //   invocationId = 0,
 //   onProgress,
 // } = opts;
-const conversationQueue = new Queue(10);
-const messageQueue = new Queue(10);
 app.post(`/message`, async (req, res) => {
   try {
     const { message } = req.body;
@@ -76,56 +74,51 @@ const sendMessage = async (message: string, sessionId?: string) => {
   sessionId = sessionId || uuid();
   conversationInfo = await getOrCreateConversationInfo(sessionId);
   const startTime = new Date().getTime();
-  await messageQueue.wait(sessionId);
-  try {
-    const response: BingChatResponse = await bingAIClient.sendMessage(message, {
-      jailbreakConversationId: true,
-      conversationId: conversationInfo.conversationId,
-      clientId: conversationInfo.clientId,
-      conversationSignature: conversationInfo.conversationSignature,
-      invocationId: conversationInfo.invocationId,
-    });
-    const endTime = new Date().getTime();
-    const responseMarkdown = await generateMarkdown(response);
-    console.log(responseMarkdown);
-    if (sessionId) {
-      await prisma.conversations.upsert({
-        where: {
-          sessionId_conversationId: {
-            sessionId,
-            conversationId: conversationInfo.conversationId,
-          },
-        },
-        create: {
+  const response: BingChatResponse = await bingAIClient.sendMessage(message, {
+    jailbreakConversationId: true,
+    conversationId: conversationInfo.conversationId,
+    clientId: conversationInfo.clientId,
+    conversationSignature: conversationInfo.conversationSignature,
+    invocationId: conversationInfo.invocationId,
+  });
+  const endTime = new Date().getTime();
+  const responseMarkdown = await generateMarkdown(response);
+  console.log(responseMarkdown);
+  if (sessionId) {
+    await prisma.conversations.upsert({
+      where: {
+        sessionId_conversationId: {
           sessionId,
-          conversationExpiryTime: response.conversationExpiryTime,
           conversationId: conversationInfo.conversationId,
-          jailbreakConversationId: response.jailbreakConversationId,
-          clientId: response.clientId,
-          conversationSignature: response.conversationSignature,
-          invocationId: response.invocationId,
         },
-        update: {
-          conversationExpiryTime: response.conversationExpiryTime,
-          jailbreakConversationId: response.jailbreakConversationId,
-          clientId: response.clientId,
-          conversationSignature: response.conversationSignature,
-          invocationId: response.invocationId,
-        },
-      });
-    }
-    await prisma.result.create({
-      data: {
-        request: message,
-        response: responseMarkdown,
-        conversationsId: conversationInfo.conversationId,
-        responseTime: endTime - startTime,
+      },
+      create: {
+        sessionId,
+        conversationExpiryTime: response.conversationExpiryTime,
+        conversationId: conversationInfo.conversationId,
+        jailbreakConversationId: response.jailbreakConversationId,
+        clientId: response.clientId,
+        conversationSignature: response.conversationSignature,
+        invocationId: response.invocationId,
+      },
+      update: {
+        conversationExpiryTime: response.conversationExpiryTime,
+        jailbreakConversationId: response.jailbreakConversationId,
+        clientId: response.clientId,
+        conversationSignature: response.conversationSignature,
+        invocationId: response.invocationId,
       },
     });
-    return responseMarkdown;
-  } finally {
-    await messageQueue.end(sessionId);
   }
+  await prisma.result.create({
+    data: {
+      request: message,
+      response: responseMarkdown,
+      conversationsId: conversationInfo.conversationId,
+      responseTime: endTime - startTime,
+    },
+  });
+  return responseMarkdown;
 };
 app.post(`/message/:sessionId`, async (req, res) => {
   try {
