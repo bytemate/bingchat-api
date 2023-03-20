@@ -50,7 +50,6 @@ const getOrCreateConversationInfo = async (
     },
   });
   if (conversationInfo) {
-    console.log(conversationInfo);
     return conversationInfo;
   }
   const newConversationInfo = await bingAIClient.createNewConversation();
@@ -75,7 +74,7 @@ const sendMessage = async (message: string, sessionId?: string) => {
   conversationInfo = await getOrCreateConversationInfo(sessionId);
   const startTime = new Date().getTime();
   const response: BingChatResponse = await bingAIClient.sendMessage(message, {
-    jailbreakConversationId: true,
+    jailbreakConversationId: conversationInfo.jailbreakConversationId ?? true,
     conversationId: conversationInfo.conversationId,
     clientId: conversationInfo.clientId,
     conversationSignature: conversationInfo.conversationSignature,

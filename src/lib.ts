@@ -2,6 +2,7 @@ import axios from "axios";
 export interface ConversationInfo {
   conversationId: string;
   clientId: string;
+  jailbreakConversationId?: string | null,
   conversationSignature: string;
   invocationId: number;
 }
