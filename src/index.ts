@@ -4,7 +4,7 @@ import { Prisma, PrismaClient } from "@prisma/client";
 import { ConversationInfo } from "./lib";
 import { uuid } from "uuidv4";
 import express from "express";
-import { create } from "axios";
+
 import { generateMarkdown, BingChatResponse } from "./lib";
 let bingAIClient: any;
 const prisma = new PrismaClient();
@@ -30,7 +30,7 @@ app.post(`/message`, async (req, res) => {
   try {
     const { message } = req.body;
     console.log(`Received message: ${message}`);
-    const reply = await sendMesasge(message);
+    const reply = await sendMessage(message);
     return res.json({
       response: reply,
     });
@@ -55,27 +55,24 @@ const getOrCreateConversationInfo = async (
     console.log(conversationInfo);
     return conversationInfo;
   }
-  await conversationQueue.wait(sessionId);
-  try {
-    const newConversationInfo = await bingAIClient.createNewConversation();
-    console.log(`Created new conversation: ${newConversationInfo}`);
-    console.log(newConversationInfo);
-    await prisma.conversations.create({
-      data: {
-        sessionId,
-        conversationExpiryTime: newConversationInfo.conversationExpiryTime,
-        conversationId: newConversationInfo.conversationId,
-        clientId: newConversationInfo.clientId,
-        conversationSignature: newConversationInfo.conversationSignature,
-        invocationId: 0,
-      },
-    });
-    return newConversationInfo;
-  } finally {
-    await conversationQueue.end(sessionId);
-  }
+  const newConversationInfo = await bingAIClient.sendMessage("", {
+    jailbreakConversationId: true,
+  });
+  console.log(`Created new conversation: ${newConversationInfo}`);
+  console.log(newConversationInfo);
+  await prisma.conversations.create({
+    data: {
+      sessionId,
+      conversationExpiryTime: newConversationInfo.conversationExpiryTime,
+      conversationId: newConversationInfo.conversationId,
+      clientId: newConversationInfo.clientId,
+      conversationSignature: newConversationInfo.conversationSignature,
+      invocationId: 0,
+    },
+  });
+  return newConversationInfo;
 };
-const sendMesasge = async (message: string, sessionId?: string) => {
+const sendMessage = async (message: string, sessionId?: string) => {
   let conversationInfo;
   sessionId = sessionId || uuid();
   conversationInfo = await getOrCreateConversationInfo(sessionId);
@@ -83,6 +80,7 @@ const sendMesasge = async (message: string, sessionId?: string) => {
   await messageQueue.wait(sessionId);
   try {
     const response: BingChatResponse = await bingAIClient.sendMessage(message, {
+      jailbreakConversationId: true,
       conversationId: conversationInfo.conversationId,
       clientId: conversationInfo.clientId,
       conversationSignature: conversationInfo.conversationSignature,
@@ -103,12 +101,14 @@ const sendMesasge = async (message: string, sessionId?: string) => {
           sessionId,
           conversationExpiryTime: response.conversationExpiryTime,
           conversationId: conversationInfo.conversationId,
+          jailbreakConversationId: response.jailbreakConversationId,
           clientId: response.clientId,
           conversationSignature: response.conversationSignature,
           invocationId: response.invocationId,
         },
         update: {
           conversationExpiryTime: response.conversationExpiryTime,
+          jailbreakConversationId: response.jailbreakConversationId,
           clientId: response.clientId,
           conversationSignature: response.conversationSignature,
           invocationId: response.invocationId,
@@ -133,7 +133,7 @@ app.post(`/message/:sessionId`, async (req, res) => {
     const { sessionId } = req.params;
     const { message } = req.body;
     console.log(`Received message: ${message} for session: ${sessionId}`);
-    const response = await sendMesasge(message, sessionId);
+    const response = await sendMessage(message, sessionId);
     return res.json({
       response: response,
     });

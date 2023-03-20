@@ -11,6 +11,7 @@ export interface BingChatResponse {
   clientId: string;
   invocationId: number;
   conversationExpiryTime: Date;
+  jailbreakConversationId?: string,
   response: string;
   details: Details;
 }
