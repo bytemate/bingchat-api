@@ -1,10 +1,10 @@
 import "dotenv/config";
 import { Prisma, PrismaClient } from "@prisma/client";
+import crypto from 'crypto';
 // @ts-ignore
 import { ConversationInfo } from "./lib";
 import { uuid } from "uuidv4";
 import express from "express";
-
 import { generateMarkdown, BingChatResponse } from "./lib";
 let bingAIClient: any;
 const prisma = new PrismaClient();
@@ -55,14 +55,13 @@ const getOrCreateConversationInfo = async (
     console.log(conversationInfo);
     return conversationInfo;
   }
-  const newConversationInfo = await bingAIClient.sendMessage("", {
-    jailbreakConversationId: true,
-  });
+  const newConversationInfo = await bingAIClient.createNewConversation();
   console.log(`Created new conversation: ${newConversationInfo}`);
   console.log(newConversationInfo);
   await prisma.conversations.create({
     data: {
       sessionId,
+      jailbreakConversationId: crypto.randomUUID(),
       conversationExpiryTime: newConversationInfo.conversationExpiryTime,
       conversationId: newConversationInfo.conversationId,
       clientId: newConversationInfo.clientId,
