@@ -75,10 +75,11 @@ const sendMessage = async (message: string, sessionId?: string) => {
   const startTime = new Date().getTime();
   const response: BingChatResponse = await bingAIClient.sendMessage(message, {
     jailbreakConversationId: conversationInfo.jailbreakConversationId ?? true,
-    conversationId: conversationInfo.conversationId,
-    clientId: conversationInfo.clientId,
-    conversationSignature: conversationInfo.conversationSignature,
-    invocationId: conversationInfo.invocationId,
+    parentMessageId: conversationInfo.messageId,
+    // conversationId: conversationInfo.conversationId,
+    // clientId: conversationInfo.clientId,
+    // conversationSignature: conversationInfo.conversationSignature,
+    // invocationId: conversationInfo.invocationId,
   });
   const endTime = new Date().getTime();
   const responseMarkdown = await generateMarkdown(response);
@@ -96,6 +97,7 @@ const sendMessage = async (message: string, sessionId?: string) => {
         conversationExpiryTime: response.conversationExpiryTime,
         conversationId: conversationInfo.conversationId,
         jailbreakConversationId: response.jailbreakConversationId,
+        messageId: response.messageId,
         clientId: response.clientId,
         conversationSignature: response.conversationSignature,
         invocationId: response.invocationId,
@@ -104,6 +106,7 @@ const sendMessage = async (message: string, sessionId?: string) => {
         conversationExpiryTime: response.conversationExpiryTime,
         jailbreakConversationId: response.jailbreakConversationId,
         clientId: response.clientId,
+        messageId: response.messageId,
         conversationSignature: response.conversationSignature,
         invocationId: response.invocationId,
       },

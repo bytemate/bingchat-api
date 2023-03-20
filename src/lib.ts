@@ -2,9 +2,10 @@ import axios from "axios";
 export interface ConversationInfo {
   conversationId: string;
   clientId: string;
-  jailbreakConversationId?: string | null,
   conversationSignature: string;
   invocationId: number;
+  jailbreakConversationId?: string | null,
+  messageId?: string | null,
 }
 export interface BingChatResponse {
   conversationSignature: string;
@@ -13,6 +14,7 @@ export interface BingChatResponse {
   invocationId: number;
   conversationExpiryTime: Date;
   jailbreakConversationId?: string,
+  messageId?: string,
   response: string;
   details: Details;
 }
