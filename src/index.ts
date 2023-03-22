@@ -75,7 +75,7 @@ const sendMessage = async (message: string, sessionId?: string) => {
   const startTime = new Date().getTime();
   const response: BingChatResponse = await bingAIClient.sendMessage(message, {
     jailbreakConversationId: conversationInfo.jailbreakConversationId ?? true,
-    systemMessage: "I'm a helpful assistant.",
+    systemMessage: process.env.SYSTEM_PROMPT,
     parentMessageId: conversationInfo.messageId,
     // conversationId: conversationInfo.conversationId,
     // clientId: conversationInfo.clientId,
