@@ -159,6 +159,11 @@ app.delete(`/message/:sessionId`, async (req, res) => {
     });
   }
 });
+//conversation ID
+app.get(`/conversation`, async (req, res) => {
+  const conversationInfo = await bingAIClient.createNewConversation();
+  return res.json(conversationInfo);
+})
 async function main() {
   // @ts-ignore
   const { BingAIClient } = await import("@waylaidwanderer/chatgpt-api");
