@@ -186,6 +186,7 @@ app.post('/conversation', async (request, reply) => {
 
   let result;
   let error;
+  let duration: number = 0;
   try {
     if (!body.message) {
       const invalidError = new Error() as any;
@@ -203,7 +204,7 @@ app.post('/conversation', async (request, reply) => {
     let { shouldGenerateTitle } = body;
 
     const messageClient = bingAIClient
-
+    const startTime = new Date().getTime();
     result = await messageClient.sendMessage(body.message, {
       jailbreakConversationId: body.jailbreakConversationId,
       conversationId: body.conversationId ? body.conversationId.toString() : undefined,
@@ -211,16 +212,34 @@ app.post('/conversation', async (request, reply) => {
       conversationSignature: body.conversationSignature,
       clientId: body.clientId,
       invocationId: body.invocationId,
+      systemMessage: process.env.SYSTEM_PROMPT,
       shouldGenerateTitle, // only used for ChatGPTClient
       toneStyle: body.toneStyle,
       clientOptions,
       onProgress,
       abortController,
     });
+    const endTime = new Date().getTime();
+    duration = endTime - startTime;
   } catch (e) {
     error = e;
   }
-
+  await (async () => {
+    const response = result;
+    const responseMarkdown = await generateMarkdown(response);
+    try{
+      await prisma.result.create({
+        data: {
+          request: body.message,
+          response: responseMarkdown,
+          conversationsId: result.conversationId,
+          responseTime: duration,
+        },
+      });
+    }catch(e){
+      console.error(e);
+    }
+  })()
   if (result !== undefined) {
     if (body.stream === true) {
       reply.sse({ event: 'result', id: '', data: JSON.stringify(result) });
@@ -235,7 +254,7 @@ app.post('/conversation', async (request, reply) => {
   if (code === 503) {
     console.error(error);
   }
-    //@ts-ignore
+  //@ts-ignore
   const message = error?.data?.message || error?.message || `There was an error communicating with`;
   if (body.stream === true) {
     reply.sse({
